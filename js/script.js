@@ -1,566 +1,346 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
+    console.log('App initializing...');
+    
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const loading = document.getElementById('loading');
     const chatList = document.getElementById('chatList');
     const newChatBtn = document.getElementById('newChatBtn');
-    const currentChatTitle = document.getElementById('currentChatTitle');
     const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const darkCodeTheme = document.getElementById('dark-code-theme');
-    
-    // Mobile specific elements
+    const modelDisplayBtn = document.getElementById('modelDisplayBtn');
+    const currentModelName = document.getElementById('currentModelName');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+    const systemPromptTextarea = document.getElementById('systemPrompt');
+    const fontSizeSelect = document.getElementById('fontSize');
+    const codeThemeSelect = document.getElementById('codeTheme');
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
     const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
     const mobileNewChatBtn = document.getElementById('mobileNewChatBtn');
+    const modelModal = document.getElementById('modelModal');
+    const closeModelBtn = document.getElementById('closeModelBtn');
+    const modelList = document.getElementById('modelList');
+    const searchChats = document.getElementById('searchChats');
     
-    // Theme
-    let isDarkMode = localStorage.getItem('darkMode') === 'true';
+    // Check if all elements are found
+    if (!modelDisplayBtn) console.error('modelDisplayBtn not found');
+    if (!modelModal) console.error('modelModal not found');
+    if (!toggleSidebarBtn) console.error('toggleSidebarBtn not found');
+    if (!sidebar) console.error('sidebar not found');
     
-    // API endpoint configuration - obfuscated to hide from view
-    const API_CONFIG = {
-        // Base endpoint parts split to make it harder to identify in source view
-        b: atob('aHR0cHM6Ly9haS5o'), // "https://ai.o" encoded
-        a: atob('YWNrY2x1Yi5jb20v'), // "enai.com/" encoded
-        p: atob('Y2hhdC9jb21wbGV0aW9ucw=='), // "chat/completions" encoded
-        // Function to construct the endpoint dynamically
-        getEndpoint: function() {
-            return this.b + this.a + this.p;
-        }
-    };
+    console.log('All elements loaded successfully');
     
-    // Configure Marked.js options
-    marked.setOptions({
-        highlight: function(code, lang) {
-            if (window.hljs && lang && hljs.getLanguage(lang)) {
-                return hljs.highlight(code, { language: lang }).value;
-            }
-            return code;
+    // Encrypted API endpoint (Base64 encoded)
+    const getAPIEndpoint = () => atob('aHR0cHM6Ly9haS5oYWNrY2x1Yi5jb20vY2hhdC9jb21wbGV0aW9ucw==');
+    
+    const DEFAULT_SYSTEM_PROMPT = `Be talkative and conversational. Respond with corporate jargon. Readily share strong opinions. Get right to the point. Take a forward-thinking view.`;
+    
+    // Model descriptions with capabilities
+    const MODEL_INFO = {
+        'qwen/qwen3-32b': {
+            name: 'Qwen 3',
+            fullName: 'Qwen 3 32B',
+            description: 'General purpose model with balanced performance for everyday tasks',
+            reasoning: false
         },
-        breaks: true, // Enable line breaks
-        gfm: true,   // Enable GitHub Flavored Markdown
-        headerIds: false, // Disable header IDs for security
-    });
-    
-    // KaTeX
-    const katexOptions = {
-        delimiters: [
-            {left: "$$", right: "$$", display: true},
-            {left: "$", right: "$", display: false},
-            {left: "\\(", right: "\\)", display: false},
-            {left: "\\[", right: "\\]", display: true}
-        ],
-        throwOnError: false
+        'openai/gpt-oss-120b': {
+            name: 'GPT OSS',
+            fullName: 'GPT OSS 120B',
+            description: 'Advanced reasoning model for complex analysis and deep thinking',
+            reasoning: true
+        },
+        'openai/gpt-oss-20b': {
+            name: 'GPT Fast',
+            fullName: 'GPT OSS 20B',
+            description: 'Fast and efficient model for quick responses',
+            reasoning: false
+        },
+        'meta-llama/llama-4-maverick': {
+            name: 'Llama 4',
+            fullName: 'Llama 4 Maverick',
+            description: 'Creative and versatile model for diverse applications',
+            reasoning: false
+        },
+        'moonshotai/kimi-k2-instruct-0905': {
+            name: 'Kimi K2',
+            fullName: 'Kimi K2 Instruct',
+            description: 'Specialized in instruction following and structured tasks',
+            reasoning: false
+        }
     };
     
-    // nitialize KaTeX rendering (like latex)
-    function initKaTeXRendering() {
-        if (window.renderMathInElement) {
-            document.querySelectorAll('.markdown-content').forEach(el => {
-                renderMathInElement(el, katexOptions);
-            });
-        }
-    }
+    let settings = {
+        systemPrompt: localStorage.getItem('systemPrompt') || DEFAULT_SYSTEM_PROMPT,
+        fontSize: localStorage.getItem('fontSize') || 'medium',
+        codeTheme: localStorage.getItem('codeTheme') || 'github-dark',
+        model: localStorage.getItem('selectedModel') || 'qwen/qwen3-32b',
+        darkMode: localStorage.getItem('darkMode') === 'true'
+    };
     
-    // When KaTeX auto-render script loads, call our initialization
-    if (window.renderMathInElement) {
-        initKaTeXRendering();
-    } else {
-        // If renderMathInElement is not present, wait for it
-        window.addEventListener('load', () => {
-            if (window.renderMathInElement) {
-                initKaTeXRendering();
-            }
-        });
-    }
-    
-    // Initialize theme
-    initTheme();
-    
-    // Chat data manage
     let chats = JSON.parse(localStorage.getItem('chats')) || [];
     let currentChatId = localStorage.getItem('currentChatId');
     
-    // Initialize
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+        headerIds: false,
+        mangle: false
+    });
+    
     initializeApp();
     
-    // Event Listeners
-    sendBtn.addEventListener('click', handleSendMessage);
-    userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage();
+    function initializeApp() {
+        loadSettings();
+        if (settings.darkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            themeToggleBtn.querySelector('i').className = 'fas fa-sun';
         }
-    });
-    newChatBtn.addEventListener('click', createNewChat);
-    themeToggleBtn.addEventListener('click', toggleTheme);
-    
-    // Mobile-specific event listeners
-    toggleSidebarBtn.addEventListener('click', toggleSidebar);
-    closeSidebarBtn.addEventListener('click', closeSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-    if (mobileNewChatBtn) {
-        mobileNewChatBtn.addEventListener('click', () => {
-            createNewChat();
-            closeSidebar();
-        });
-    }
-    
-    // Add event listener to close sidebar when chat item is clicked on mobile
-    const chatItems = document.querySelectorAll('.chat-item');
-    chatItems.forEach(item => {
-        item.addEventListener('click', () => {
-            if (window.innerWidth <= 768) {
-                closeSidebar();
-            }
-        });
-    });
-    
-    // Mobile sidebar functions
-    function toggleSidebar() {
-        sidebar.classList.toggle('active');
-        sidebarOverlay.classList.toggle('active');
-        document.body.classList.toggle('sidebar-open');
-    }
-    
-    function closeSidebar() {
-        sidebar.classList.remove('active');
-        sidebarOverlay.classList.remove('active');
-        document.body.classList.remove('sidebar-open');
-    }
-    
-    // Check if device is mobile
-    function isMobileDevice() {
-        return window.innerWidth <= 768;
-    }
-    
-    // Theme functions
-    function initTheme() {
-        // Check if user has previously set a theme preference
-        if (isDarkMode) {
-            enableDarkMode();
+        renderModelList();
+        renderChatList();
+        if (currentChatId && chats.find(c => c.id === currentChatId)) {
+            loadChat(currentChatId);
         } else {
-            enableLightMode();
+            createNewChat();
         }
-        
-        // Detect system dark mode, if theme mode is not configured.
-        if (localStorage.getItem('darkMode') === null) {
-            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                enableDarkMode();
-            }
-            window.matchMedia('(prefers-color-scheme: dark)')
-                .addEventListener('change', e => {
-                    if (e.matches) {
-                        enableDarkMode();
-                    } else {
-                        enableLightMode();
-                    }
-                });
+        updateCurrentModelDisplay();
+    }
+    
+    function renderModelList() {
+        modelList.innerHTML = '';
+        Object.keys(MODEL_INFO).forEach(modelKey => {
+            const info = MODEL_INFO[modelKey];
+            const modelItem = document.createElement('div');
+            modelItem.className = `model-item ${settings.model === modelKey ? 'active' : ''}`;
+            modelItem.innerHTML = `
+                <div class="model-item-header">
+                    <div class="model-item-name">
+                        ${info.name}
+                        ${info.reasoning ? '<span class="model-reasoning-badge">🧠 Reasoning</span>' : ''}
+                    </div>
+                    ${settings.model === modelKey ? '<i class="fas fa-check model-check-icon"></i>' : ''}
+                </div>
+                <div class="model-item-description">${info.description}</div>
+            `;
+            modelItem.addEventListener('click', () => {
+                settings.model = modelKey;
+                localStorage.setItem('selectedModel', settings.model);
+                updateCurrentModelDisplay();
+                renderModelList();
+                modelModal.classList.remove('active');
+                if (info.reasoning) {
+                    console.log(`%c🧠 Switched to Reasoning Model: ${info.fullName}`, 'color: #0a84ff; font-weight: bold; font-size: 14px;');
+                    console.log(`%c${info.description}`, 'color: #888; font-size: 12px;');
+                }
+            });
+            modelList.appendChild(modelItem);
+        });
+    }
+    
+    function updateCurrentModelDisplay() {
+        const currentModel = MODEL_INFO[settings.model];
+        if (currentModel) {
+            currentModelName.textContent = currentModel.name;
         }
+    }
+    
+    function updateModelDescription() {
+        const currentModel = MODEL_INFO[settings.model];
+        if (currentModel && currentModel.reasoning) {
+            console.log(`%c🧠 Reasoning Model Active: ${currentModel.fullName}`, 'color: #0a84ff; font-weight: bold; font-size: 14px;');
+            console.log(`%c${currentModel.description}`, 'color: #888; font-size: 12px;');
+            console.log('%cThis model provides detailed thinking process in responses.', 'color: #888; font-style: italic; font-size: 12px;');
+        }
+    }
+    
+    function loadSettings() {
+        systemPromptTextarea.value = settings.systemPrompt;
+        fontSizeSelect.value = settings.fontSize;
+        codeThemeSelect.value = settings.codeTheme;
+        document.body.className = `font-${settings.fontSize}`;
+        loadCodeTheme(settings.codeTheme);
+    }
+    
+    function loadCodeTheme(theme) {
+        const link = document.querySelector('link[href*="highlight.js/11.7.0/styles/github-dark"]');
+        if (link) {
+            link.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/${theme}.min.css`;
+        }
+    }
+    
+    function saveSettings() {
+        settings.systemPrompt = systemPromptTextarea.value;
+        settings.fontSize = fontSizeSelect.value;
+        settings.codeTheme = codeThemeSelect.value;
+        localStorage.setItem('systemPrompt', settings.systemPrompt);
+        localStorage.setItem('fontSize', settings.fontSize);
+        localStorage.setItem('codeTheme', settings.codeTheme);
+        document.body.className = `font-${settings.fontSize}`;
+        loadCodeTheme(settings.codeTheme);
+        settingsModal.classList.remove('active');
+        showNotification('Settings saved successfully!');
+    }
+    
+    function resetSettings() {
+        settings.systemPrompt = DEFAULT_SYSTEM_PROMPT;
+        settings.fontSize = 'medium';
+        settings.codeTheme = 'github-dark';
+        systemPromptTextarea.value = settings.systemPrompt;
+        fontSizeSelect.value = settings.fontSize;
+        codeThemeSelect.value = settings.codeTheme;
+        showNotification('Settings reset to default');
+    }
+    
+    function showNotification(message) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 2000);
     }
     
     function toggleTheme() {
-        if (isDarkMode) {
-            enableLightMode();
+        settings.darkMode = !settings.darkMode;
+        localStorage.setItem('darkMode', settings.darkMode);
+        if (settings.darkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            themeToggleBtn.querySelector('i').className = 'fas fa-sun';
         } else {
-            enableDarkMode();
-        }
-    }
-    
-    function enableDarkMode() {
-        document.body.setAttribute('data-theme', 'dark');
-        themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
-        isDarkMode = true;
-        localStorage.setItem('darkMode', 'true');
-        darkCodeTheme.removeAttribute('disabled');
-        // highlight code blocks with dark theme
-        if (window.hljs) {
-            document.querySelectorAll('pre code').forEach(block => {
-                hljs.highlightElement(block);
-            });
-        }
-    }
-    
-    function enableLightMode() {
-        document.body.removeAttribute('data-theme');
-        themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
-        isDarkMode = false;
-        localStorage.setItem('darkMode', 'false');
-        darkCodeTheme.setAttribute('disabled', '');
-        // highlight code blocks with light theme
-        if (window.hljs) {
-            document.querySelectorAll('pre code').forEach(block => {
-                hljs.highlightElement(block);
-            });
-        }
-    }
-    
-    // Functions
-    function initializeApp() {
-        // If no chats exist, create a new one
-        if (chats.length === 0 || !currentChatId) {
-            createNewChat();
-        } else {
-            // Load current chat
-            loadChat(currentChatId);
-            // Load chat list
-            renderChatList();
+            document.documentElement.setAttribute('data-theme', 'light');
+            themeToggleBtn.querySelector('i').className = 'fas fa-moon';
         }
     }
     
     function createNewChat() {
-        // Generate a new chat ID
-        const chatId = 'chat_' + Date.now();
-        // Create a new chat object
         const newChat = {
-            id: chatId,
+            id: Date.now().toString(),
             title: 'New conversation',
             messages: [],
             createdAt: new Date().toISOString()
         };
-        // Add to chats array
         chats.unshift(newChat);
-        // Set as current chat
-        currentChatId = chatId;
-        // Save to localStorage
-        saveChats();
-        // Clear chat box
+        currentChatId = newChat.id;
+        localStorage.setItem('chats', JSON.stringify(chats));
+        localStorage.setItem('currentChatId', currentChatId);
         chatBox.innerHTML = '';
-        // Add welcome message
-        const welcomeHtml = `
-            <div class="welcome-container">
-                <div class="welcome-icon">
-                    <i class="fas fa-comment-dots"></i>
-                </div>
-                <h2 class="welcome-title">How can I help you today?</h2>
-                <p class="welcome-subtitle">Ask me anything about technology, code, or information you'd like to know.</p>
-            </div>
-        `;
-        chatBox.innerHTML = welcomeHtml;
-        currentChatTitle.textContent = 'New conversation';
+        currentChatTitle.textContent = newChat.title;
         renderChatList();
+        if (window.innerWidth <= 768) {
+            closeSidebar();
+        }
     }
     
     function loadChat(chatId) {
-        // Find the chat
-        const chat = chats.find(chat => chat.id === chatId);
+        const chat = chats.find(c => c.id === chatId);
         if (!chat) return;
-        // Set as current chat
         currentChatId = chatId;
-        localStorage.setItem('currentChatId', chatId);
-        // Update title
-        currentChatTitle.textContent = chat.title;
-        // Clear chat box
+        localStorage.setItem('currentChatId', currentChatId);
         chatBox.innerHTML = '';
-        // Load messages
-        if (chat.messages.length === 0) {
-            // Show welcome message if no messages
-            const welcomeHtml = `
-                <div class="welcome-container">
-                    <div class="welcome-icon">
-                        <i class="fas fa-comment-dots"></i>
-                    </div>
-                    <h2 class="welcome-title">How can I help you today?</h2>
-                    <p class="welcome-subtitle">Ask me anything about technology, code, or information you'd like to know.</p>
-                </div>
-            `;
-            chatBox.innerHTML = welcomeHtml;
-        } else {
-            // Display messages
-            chat.messages.forEach(msg => {
-                addMessageToChat(msg.sender, msg.content, false);
-            });
-        }
-        // Update active state in chat list
+        currentChatTitle.textContent = chat.title;
+        chat.messages.forEach(msg => {
+            displayMessage(msg.content, msg.role);
+        });
         renderChatList();
-        // Add click handlers to newly loaded chat items on mobile
-        if (isMobileDevice()) {
-            document.querySelectorAll('.chat-item').forEach(item => {
-                item.addEventListener('click', closeSidebar);
-            });
-        }
+        scrollToBottom();
     }
     
-    function renderChatList() {
-        // Clear chat list
-        chatList.innerHTML = '';
-        // Add each chat to the list
-        chats.forEach(chat => {
-            const chatItem = document.createElement('div');
-            chatItem.classList.add('chat-item');
-            if (chat.id === currentChatId) {
-                chatItem.classList.add('active');
+    function deleteChat(chatId) {
+        chats = chats.filter(c => c.id !== chatId);
+        localStorage.setItem('chats', JSON.stringify(chats));
+        if (currentChatId === chatId) {
+            if (chats.length > 0) {
+                loadChat(chats[0].id);
+            } else {
+                createNewChat();
             }
-            // Create chat title display
-            const chatTitle = chat.title === 'New conversation' && chat.messages.length > 0 
-                ? generateChatTitle(chat.messages[0].content)
-                : chat.title;
-            chatItem.innerHTML = `
-                <span class="chat-item-icon"><i class="fas fa-comment"></i></span>
-                <span class="chat-item-title">${chatTitle}</span>
-            `;
-            chatItem.addEventListener('click', () => loadChat(chat.id));
+        }
+        renderChatList();
+    }
+    
+    function renderChatList(searchTerm = '') {
+        chatList.innerHTML = '';
+        const filteredChats = searchTerm 
+            ? chats.filter(chat => chat.title.toLowerCase().includes(searchTerm))
+            : chats;
+        
+        if (filteredChats.length === 0 && searchTerm) {
+            chatList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary); font-size: 14px;">No conversations found</div>';
+            return;
+        }
+        
+        filteredChats.forEach(chat => {
+            const chatItem = document.createElement('div');
+            chatItem.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
+            const chatText = document.createElement('span');
+            chatText.className = 'chat-item-text';
+            chatText.textContent = chat.title;
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-chat-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('Delete this conversation?')) {
+                    deleteChat(chat.id);
+                }
+            };
+            chatItem.appendChild(chatText);
+            chatItem.appendChild(deleteBtn);
+            chatItem.onclick = () => {
+                loadChat(chat.id);
+                closeSidebar();
+            };
             chatList.appendChild(chatItem);
         });
     }
     
-    // Generate a title from the first user message
-    function generateChatTitle(message) {
-        // Truncate message if too long
-        if (message.length > 25) {
-            return message.substring(0, 25) + '...';
-        }
-        return message;
-    }
-    
-    // Function to handle sending messages
-    function handleSendMessage() {
+    async function handleSendMessage() {
         const message = userInput.value.trim();
-        if (message === '') return;
-        // Add user message to chat
-        addMessageToChat('user', message);
+        if (!message) return;
+        displayMessage(message, 'user');
+        const currentChat = chats.find(c => c.id === currentChatId);
+        if (currentChat) {
+            currentChat.messages.push({ role: 'user', content: message });
+            if (currentChat.messages.length === 1) {
+                currentChat.title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
+                renderChatList();
+            }
+            localStorage.setItem('chats', JSON.stringify(chats));
+        }
         userInput.value = '';
-        // Update current chat title if it's the first message
-        const currentChat = chats.find(chat => chat.id === currentChatId);
-        if (currentChat && currentChat.messages.length === 1) {
-            currentChat.title = generateChatTitle(message);
-            currentChatTitle.textContent = currentChat.title;
-            renderChatList();
-        }
-        // Show loading spinner
-        loading.style.display = 'block';
-        // Send message to AI API
-        sendMessageToAI(message)
-            .then(response => {
-                // Hide loading spinner
-                loading.style.display = 'none';
-                // Add AI response to chat
-                addMessageToChat('ai', response);
-                // Save chats
-                saveChats();
-            })
-            .catch(error => {
-                // Hide loading spinner
-                loading.style.display = 'none';
-                // Display error message
-                addMessageToChat('ai', `Error: ${error.message}`);
-                // Save chats
-                saveChats();
-            });
-    }
-
-    // Function to add a message to the chat
-    function addMessageToChat(sender, message, saveToStorage = true) {
-        // If we have a welcome screen, remove it
-        if (chatBox.querySelector('.welcome-container')) {
-            chatBox.innerHTML = '';
-        }
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('message', `${sender}-message`);
-        // For user messages, just display the text
-        if (sender === 'user') {
-            messageElement.textContent = message;
-        } 
-        // For AI responses
-        else {
-            try {
-                // First try to parse as JSON - handle malformed JSON with extra spaces or line breaks
-                if (message.trim().startsWith('{') && message.trim().includes('"choices":')) {
-                    // Clean up JSON by removing any line breaks that might be causing issues
-                    const cleanedMessage = message.replace(/\n/g, '\\n');
-                    let jsonData;
-                    try {
-                        jsonData = JSON.parse(cleanedMessage);
-                    } catch (firstError) {
-                        // Try a more aggressive approach - This is for handling cases with unusual spacing
-                        try {
-                            // This regex finds anything that looks like a JSON object
-                            const jsonMatch = cleanedMessage.match(/{.*}/);
-                            if (jsonMatch) {
-                                jsonData = JSON.parse(jsonMatch[0]);
-                            } else {
-                                throw firstError;
-                            }
-                        } catch (e) {
-                            // If all parsing attempts fail, use the original message
-                            throw firstError;
-                        }
-                    }
-                    // Extract content from the JSON response
-                    if (jsonData.choices && 
-                        jsonData.choices[0] && 
-                        jsonData.choices[0].message && 
-                        jsonData.choices[0].message.content) {
-                        const content = jsonData.choices[0].message.content;
-                        // Create a wrapper for markdown content
-                        const markdownDiv = document.createElement('div');
-                        markdownDiv.classList.add('markdown-content');
-                        // Parse markdown and set as HTML
-                        markdownDiv.innerHTML = marked.parse(content);
-                        // Initialize syntax highlighting for code blocks
-                        if (window.hljs) {
-                            markdownDiv.querySelectorAll('pre code').forEach(block => {
-                                // Try to detect the language if not specified
-                                if (!block.className.includes('language-')) {
-                                    const code = block.textContent;
-                                    const detectedLang = detectLanguage(code);
-                                    if (detectedLang) {
-                                        block.className = `hljs language-${detectedLang}`;
-                                    }
-                                }
-                                hljs.highlightElement(block);
-                            });
-                        }
-                        // Render math expressions using KaTeX
-                        if (window.renderMathInElement) {
-                            renderMathInElement(markdownDiv, katexOptions);
-                        }
-                        messageElement.appendChild(markdownDiv);
-                    } else {
-                        // Fallback: Try to extract content even if it doesn't follow the exact structure
-                        try {
-                            // Try a direct search for content field
-                            let content = "";
-                            if (jsonData.choices && jsonData.choices[0] && typeof jsonData.choices[0].message === 'object') {
-                                content = jsonData.choices[0].message.content || "";
-                            }
-                            if (content) {
-                                // Create a wrapper for markdown content
-                                const markdownDiv = document.createElement('div');
-                                markdownDiv.classList.add('markdown-content');
-                                // Parse markdown and set as HTML
-                                markdownDiv.innerHTML = marked.parse(content);
-                                // Initialize syntax highlighting and math rendering
-                                if (window.hljs) {
-                                    markdownDiv.querySelectorAll('pre code').forEach(block => {
-                                        hljs.highlightElement(block);
-                                    });
-                                }
-                                if (window.renderMathInElement) {
-                                    renderMathInElement(markdownDiv, katexOptions);
-                                }
-                                messageElement.appendChild(markdownDiv);
-                            } else {
-                                // Format the JSON nicely if no content was found
-                                messageElement.innerHTML = `<pre>${JSON.stringify(jsonData, null, 2)}</pre>`;
-                            }
-                        } catch (e) {
-                            // Format the JSON if extraction fails
-                            messageElement.innerHTML = `<pre>${JSON.stringify(jsonData, null, 2)}</pre>`;
-                        }
-                    }
-                } 
-                // Not JSON or JSON parsing failed, treat as markdown directly
-                else {
-                    // Create a wrapper for markdown content
-                    const markdownDiv = document.createElement('div');
-                    markdownDiv.classList.add('markdown-content');
-                    // Parse markdown and set as HTML
-                    markdownDiv.innerHTML = marked.parse(message);
-                    // Initialize syntax highlighting for code blocks
-                    if (window.hljs) {
-                        markdownDiv.querySelectorAll('pre code').forEach(block => {
-                            // Try to detect the language if not specified
-                            if (!block.className.includes('language-')) {
-                                const code = block.textContent;
-                                const detectedLang = detectLanguage(code);
-                                if (detectedLang) {
-                                    block.className = `hljs language-${detectedLang}`;
-                                }
-                            }
-                            hljs.highlightElement(block);
-                        });
-                    }
-                    // Render math expressions using KaTeX
-                    if (window.renderMathInElement) {
-                        renderMathInElement(markdownDiv, katexOptions);
-                    }
-                    messageElement.appendChild(markdownDiv);
-                }
-            } catch (e) {
-                console.error("Error processing message:", e);
-                // If all parsing attempts fail, fallback to displaying the message as text
-                // Check if it might contain JSON-like content and try to extract
-                if (message.includes('"choices"') && message.includes('"content"')) {
-                    try {
-                        // Try to extract content using regex as a last resort
-                        const contentMatch = message.match(/"content":"(.*?)","role"/);
-                        if (contentMatch && contentMatch[1]) {
-                            const extractedContent = contentMatch[1]
-                                .replace(/\\n/g, '\n')
-                                .replace(/\\"/g, '"')
-                                .replace(/\\\\/g, '\\');
-                                
-                            const markdownDiv = document.createElement('div');
-                            markdownDiv.classList.add('markdown-content');
-                            markdownDiv.innerHTML = marked.parse(extractedContent);
-                            messageElement.appendChild(markdownDiv);
-                        } else {
-                            // Just show the text if regex extraction fails
-                            messageElement.textContent = message;
-                        }
-                    } catch (regexError) {
-                        // Display as plain text if all else fails
-                        messageElement.textContent = message;
-                    }
-                } else {
-                    // Display as plain text for non-JSON messages
-                    messageElement.textContent = message;
-                }
-            }
-        }
-        chatBox.appendChild(messageElement);
-        // Scroll to bottom - improved for mobile
-        setTimeout(() => {
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }, 100);
-        
-        // Save message to current chat if needed
-        if (saveToStorage) {
-            const currentChat = chats.find(chat => chat.id === currentChatId);
-            if (currentChat) {
-                currentChat.messages.push({
-                    sender,
-                    content: message,
-                    timestamp: new Date().toISOString()
-                });
-                saveChats();
-            }
-        }
-    }
-
-    // Save chats to localStorage
-    function saveChats() {
-        // Limit to 20 most recent chats
-        chats = chats.slice(0, 20);
-        localStorage.setItem('chats', JSON.stringify(chats));
-        localStorage.setItem('currentChatId', currentChatId);
-    }
-
-    // Function to send message to AI API
-    async function sendMessageToAI(message) {
+        userInput.style.height = 'auto';
+        loading.classList.add('active');
+        sendBtn.disabled = true;
         try {
-            // Get all previous messages in this chat for context
-            const currentChat = chats.find(chat => chat.id === currentChatId);
-            const previousMessages = currentChat ? 
-                currentChat.messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.content })) : 
-                [];
-            // Add the current message
-            let messages = [...previousMessages];
-            // If there are too many messages, trim to the last 10
-            if (messages.length > 10) {
-                messages = messages.slice(-10);
-            }
-            // Add the new message if it's not already included
-            if (!messages.some(m => m.role === 'user' && m.content === message)) {
-                messages.push({ role: 'user', content: message });
-            }
+            const messages = [
+                { role: 'system', content: settings.systemPrompt },
+                ...currentChat.messages
+            ];
+            settings.model = modelSelect.value;
+            localStorage.setItem('selectedModel', settings.model);
+            updateModelDescription();
             
-            // Use the obfuscated endpoint
-            const response = await fetch(API_CONFIG.getEndpoint(), {
+            // Build API endpoint with model parameter
+            const apiUrl = `${getAPIEndpoint()}?model=${encodeURIComponent(settings.model)}`;
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -569,61 +349,206 @@ document.addEventListener('DOMContentLoaded', () => {
                     messages: messages
                 })
             });
-            
             if (!response.ok) {
-                throw new Error(`API responded with status: ${response.status}`);
+                throw new Error(`API error: ${response.status}`);
             }
-            const data = await response.text();
-            return data;
+            const data = await response.json();
+            const aiMessage = data.choices[0].message.content;
+            
+            // Check if model is a reasoning model and log thinking process
+            const currentModelInfo = MODEL_INFO[settings.model];
+            if (currentModelInfo && currentModelInfo.reasoning) {
+                console.group(`🧠 ${currentModelInfo.name} - Detailed Thinking Process`);
+                console.log('%cModel:', 'font-weight: bold;', currentModelInfo.name);
+                console.log('%cCapability:', 'font-weight: bold;', currentModelInfo.description);
+                console.log('%cThinking Tags Visible:', 'font-weight: bold;', 'Check response for detailed reasoning steps');
+                console.log('%cFull Response:', 'font-weight: bold; color: #0a84ff;');
+                console.log(aiMessage);
+                console.groupEnd();
+            }
+            
+            displayMessage(aiMessage, 'assistant');
+            currentChat.messages.push({ role: 'assistant', content: aiMessage });
+            localStorage.setItem('chats', JSON.stringify(chats));
         } catch (error) {
-            console.error('Error calling AI API:', error);
-            throw error;
+            console.error('Error:', error);
+            displayMessage('Sorry, there was an error processing your request. Please try again.', 'assistant');
+        } finally {
+            loading.classList.remove('active');
+            sendBtn.disabled = false;
+            scrollToBottom();
         }
     }
     
-    // Function to detect programming language from code
-    function detectLanguage(code) {
-        const patterns = {
-            javascript: /const|let|var|function|=>|document\.|window\.|console\.log|addEventListener/i,
-            python: /def |import |from .+ import|if __name__ == ['"]__main__['"]:|print\(|pandas|numpy|class .+\(/i,
-            html: /<(!DOCTYPE|html|head|body|div|span|p|h[1-6]|a href|script|link|meta)/i,
-            css: /(body|div|\.[\w-]+|#[\w-]+)\s*\{|@media|@keyframes|:root|--[\w-]+:/i,
-            java: /public (class|interface|enum)|extends|implements|@Override|System\.out|import java\./i,
-            csharp: /namespace|using System|public class|static void Main|Console\.|string\[\]|int |bool /i,
-            cpp: /#include <|std::|iostream|vector<|template|namespace /i,
-            php: /<\?php|\$_GET|\$_POST|\$_SESSION|echo |function \w+\(/i,
-            sql: /SELECT .+ FROM|CREATE TABLE|INSERT INTO|UPDATE .+ SET|DELETE FROM/i,
-            bash: /#!/i
-        };
-
-        for (const [lang, pattern] of Object.entries(patterns)) {
-            if (pattern.test(code)) {
-                return lang;
+    function displayMessage(content, role) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${role === 'user' ? 'user-message' : 'ai-message'}`;
+        if (role === 'assistant') {
+            // Check if this is a reasoning model and add indicator
+            const currentModelInfo = MODEL_INFO[settings.model];
+            if (currentModelInfo && currentModelInfo.reasoning) {
+                const reasoningBadge = document.createElement('div');
+                reasoningBadge.style.cssText = `
+                    display: inline-block;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 4px 12px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    margin-bottom: 8px;
+                `;
+                reasoningBadge.innerHTML = '🧠 Reasoning Model - Detailed thinking visible in console (F12)';
+                messageDiv.appendChild(reasoningBadge);
             }
+            
+            const html = marked.parse(content);
+            const contentDiv = document.createElement('div');
+            contentDiv.innerHTML = processMarkdown(html);
+            messageDiv.appendChild(contentDiv);
+            
+            messageDiv.querySelectorAll('pre code').forEach((block) => {
+                if (window.hljs) {
+                    hljs.highlightElement(block);
+                }
+            });
+            if (window.renderMathInElement) {
+                renderMathInElement(messageDiv, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+            }
+        } else {
+            messageDiv.textContent = content;
         }
-        // Default to plaintext if no language is detected
-        return '';
+        chatBox.appendChild(messageDiv);
+        scrollToBottom();
     }
     
-    // Handle resize events for responsive behavior
-    window.addEventListener('resize', () => {
-        if (window.innerWidth > 768 && sidebar.classList.contains('active')) {
-            closeSidebar();
+    function processMarkdown(html) {
+        html = html.replace(/<pre><code class="language-(\w+)"([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (match, lang, attrs, code) => {
+            return `
+                <pre>
+                    <div class="code-header">
+                        <span class="code-language">${lang}</span>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    </div>
+                    <code class="language-${lang}"${attrs}>${code}</code>
+                </pre>
+            `;
+        });
+        html = html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (match, attrs, code) => {
+            return `
+                <pre>
+                    <div class="code-header">
+                        <span class="code-language">code</span>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    </div>
+                    <code${attrs}>${code}</code>
+                </pre>
+            `;
+        });
+        return html;
+    }
+    
+    window.copyCode = function(button) {
+        const pre = button.closest('pre');
+        const code = pre.querySelector('code');
+        const text = code.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.textContent = 'Copy';
+                button.classList.remove('copied');
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    };
+    
+    function scrollToBottom() {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    
+    function toggleSidebar() {
+        console.log('Toggle sidebar called');
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('active');
+        console.log('Sidebar classes:', sidebar.className);
+    }
+    
+    function closeSidebar() {
+        console.log('Close sidebar called');
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('active');
+    }
+    
+    userInput.addEventListener('input', () => {
+        userInput.style.height = 'auto';
+        userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
+    });
+    
+    sendBtn.addEventListener('click', handleSendMessage);
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    });
+    newChatBtn.addEventListener('click', createNewChat);
+    if (mobileNewChatBtn) {
+        mobileNewChatBtn.addEventListener('click', createNewChat);
+    }
+    themeToggleBtn.addEventListener('click', toggleTheme);
+    
+    // Model modal handlers
+    modelDisplayBtn.addEventListener('click', () => {
+        console.log('Model button clicked');
+        modelModal.classList.add('active');
+        console.log('Modal classes:', modelModal.className);
+    });
+    closeModelBtn.addEventListener('click', () => {
+        console.log('Close model button clicked');
+        modelModal.classList.remove('active');
+    });
+    modelModal.addEventListener('click', (e) => {
+        if (e.target === modelModal) {
+            modelModal.classList.remove('active');
         }
     });
     
-    // Prevent body scrolling when sidebar is open
-    function preventBodyScroll(prevent) {
-        document.body.style.overflow = prevent ? 'hidden' : '';
-    }
-    // Adjust viewport for mobile browsers
-    function setMobileViewportHeight() {
-        if (isMobileDevice()) {
-            const vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
+    // Settings modal handlers
+    settingsBtn.addEventListener('click', () => {
+        console.log('Settings button clicked');
+        settingsModal.classList.add('active');
+    });
+    closeSettingsBtn.addEventListener('click', () => {
+        settingsModal.classList.remove('active');
+    });
+    saveSettingsBtn.addEventListener('click', saveSettings);
+    resetSettingsBtn.addEventListener('click', resetSettings);
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            settingsModal.classList.remove('active');
         }
-    }
-    // Run on load and resize
-    setMobileViewportHeight();
-    window.addEventListener('resize', setMobileViewportHeight);
+    });
+    
+    // Sidebar handlers
+    toggleSidebarBtn.addEventListener('click', toggleSidebar);
+    closeSidebarBtn.addEventListener('click', closeSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
+    
+    console.log('All event listeners attached');
+    
+    // Search chats
+    searchChats.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        renderChatList(searchTerm);
+    });
 });

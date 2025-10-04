@@ -28,15 +28,16 @@
         <!-- Sidebar for chat history -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>Conversations</h2>
                 <button id="newChatBtn" class="new-chat-btn">
-                    <i class="fas fa-plus"></i>
-                    <span>New Chat</span>
+                    <i class="fas fa-edit"></i>
                 </button>
-                <!-- Mobile close button -->
                 <button class="mobile-close-sidebar" id="closeSidebarBtn">
                     <i class="fas fa-times"></i>
                 </button>
+            </div>
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchChats" placeholder="Search conversations...">
             </div>
             <div class="chat-list" id="chatList">
                 <!-- Chat history will be populated here -->
@@ -48,17 +49,19 @@
             <header>
                 <div class="header-content">
                     <div class="header-left">
-                        <!-- Mobile menu button -->
                         <button class="mobile-menu-btn" id="toggleSidebarBtn">
                             <i class="fas fa-bars"></i>
                         </button>
-                        <div class="header-titles">
-                            <h1></h1>
-                            <p id="currentChatTitle">New conversation</p>
-                        </div>
+                        <button class="model-display-btn" id="modelDisplayBtn">
+                            <span id="currentModelName">Qwen 3</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
                     </div>
-                    <div class="theme-toggle">
-                        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Dark Mode">
+                    <div class="header-right">
+                        <button id="settingsBtn" class="icon-btn" title="Settings">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button id="themeToggleBtn" class="icon-btn" title="Toggle Dark Mode">
                             <i class="fas fa-moon"></i>
                         </button>
                     </div>
@@ -84,6 +87,65 @@
             <button id="mobileNewChatBtn" class="mobile-new-chat-btn">
                 <i class="fas fa-plus"></i>
             </button>
+        </div>
+    </div>
+    
+    <!-- Model Selection Modal -->
+    <div id="modelModal" class="modal">
+        <div class="modal-content model-modal-content">
+            <div class="modal-header">
+                <h2>Select Model</h2>
+                <button class="close-modal" id="closeModelBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="model-list" id="modelList">
+                    <!-- Models will be dynamically generated -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-modal" id="closeSettingsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>System Prompt</h3>
+                    <textarea id="systemPrompt" rows="6" placeholder="Enter custom system prompt...">Be talkative and conversational. Respond with corporate jargon. Readily share strong opinions. Get right to the point. Take a forward-thinking view.</textarea>
+                </div>
+                <div class="settings-section">
+                    <h3>Preferences</h3>
+                    <div class="setting-item">
+                        <label for="fontSize">Font Size</label>
+                        <select id="fontSize">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="codeTheme">Code Theme</label>
+                        <select id="codeTheme">
+                            <option value="github-dark">GitHub Dark</option>
+                            <option value="monokai">Monokai</option>
+                            <option value="atom-one-dark">Atom One Dark</option>
+                            <option value="vs2015">VS 2015</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-actions">
+                    <button id="saveSettingsBtn" class="save-btn">Save Settings</button>
+                    <button id="resetSettingsBtn" class="reset-btn">Reset to Default</button>
+                </div>
+            </div>
         </div>
     </div>
     
