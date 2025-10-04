@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test</title>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100vh;
+            background: #f0f0f0;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        .sidebar.open {
+            transform: translateX(0);
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <button id="toggleSidebar">Toggle Sidebar</button>
+    <button id="openModal">Open Modal</button>
+    
+    <div class="sidebar" id="sidebar">
+        <h2>Sidebar</h2>
+        <button id="closeSidebar">Close</button>
+    </div>
+    
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2>Modal</h2>
+            <button id="closeModal">Close</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar');
+            const toggleSidebarBtn = document.getElementById('toggleSidebar');
+            const closeSidebarBtn = document.getElementById('closeSidebar');
+            const modal = document.getElementById('modal');
+            const openModalBtn = document.getElementById('openModal');
+            const closeModalBtn = document.getElementById('closeModal');
+            
+            toggleSidebarBtn.addEventListener('click', () => {
+                console.log('Toggle sidebar');
+                sidebar.classList.toggle('open');
+            });
+            
+            closeSidebarBtn.addEventListener('click', () => {
+                console.log('Close sidebar');
+                sidebar.classList.remove('open');
+            });
+            
+            openModalBtn.addEventListener('click', () => {
+                console.log('Open modal');
+                modal.classList.add('active');
+            });
+            
+            closeModalBtn.addEventListener('click', () => {
+                console.log('Close modal');
+                modal.classList.remove('active');
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+            
+            console.log('Test page loaded');
+        });
+    </script>
+</body>
+</html>
